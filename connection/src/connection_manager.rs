@@ -5,17 +5,15 @@ use bincode::{self};
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::{
     io::{self, AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
-    net::{TcpStream, ToSocketAddrs},
+    net::TcpStream,
     sync::mpsc::Receiver,
 };
 
-pub async fn create_connection_manager<A, S, R>(socket_address: A, mut rx: Receiver<Command<S, R>>)
+pub async fn create_connection_manager<S, R>(stream: TcpStream, mut rx: Receiver<Command<S, R>>)
 where
-    A: ToSocketAddrs,
     S: Serialize + Debug,
     R: DeserializeOwned + Debug,
 {
-    let stream = TcpStream::connect(socket_address).await.unwrap();
     let (mut reader, mut writer) = io::split(stream);
     while let Some(command) = rx.recv().await {
         send(&command.to_send, &mut writer).await;
