@@ -1,4 +1,4 @@
-use tokio::sync::{oneshot, mpsc};
+use tokio::sync::{mpsc, oneshot};
 
 use client::command::Command;
 use client::task_manager;
@@ -16,7 +16,12 @@ async fn main() {
 
 async fn create_client_task(tx: mpsc::Sender<StringCommand>) {
     let (response_tx, response_rx) = oneshot::channel();
-    tx.send(StringCommand{to_send: 147, responder: response_tx}).await.unwrap();
+    tx.send(StringCommand {
+        to_send: 147,
+        responder: response_tx,
+    })
+    .await
+    .unwrap();
     let response = response_rx.await;
     println!("Got a response {:?}", response);
 }

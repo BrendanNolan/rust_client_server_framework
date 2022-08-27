@@ -1,16 +1,15 @@
 use std::fmt::Debug;
 
+use crate::command::Command;
 use bincode::{self};
+use serde::{de::DeserializeOwned, Serialize};
 use tokio::{
-    io::{AsyncWriteExt, AsyncReadExt, self, WriteHalf, ReadHalf},
-    net::{ToSocketAddrs,TcpStream},
+    io::{self, AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
+    net::{TcpStream, ToSocketAddrs},
     sync::mpsc::Receiver,
 };
-use serde::{Serialize, de::{DeserializeOwned}};
-use crate::command::Command;
 
-pub async fn create_task_manager<A, S, R>(
-    socket_address: A, mut rx: Receiver<Command<S, R>>)
+pub async fn create_task_manager<A, S, R>(socket_address: A, mut rx: Receiver<Command<S, R>>)
 where
     A: ToSocketAddrs,
     S: Serialize + Debug,
@@ -31,7 +30,8 @@ async fn send(message: &(impl Serialize + Debug), writer: &mut WriteHalf<TcpStre
 }
 
 async fn receive<R>(reader: &mut ReadHalf<TcpStream>) -> bincode::Result<R>
-where R: DeserializeOwned + Debug,
+where
+    R: DeserializeOwned + Debug,
 {
     let mut raw_bytes_received = Vec::new();
     reader.read_to_end(&mut raw_bytes_received).await.unwrap();
