@@ -31,7 +31,7 @@ async fn send(message: &(impl Serialize + Debug), writer: &mut WriteHalf<TcpStre
 
 async fn receive<R>(reader: &mut ReadHalf<TcpStream>) -> bincode::Result<R>
 where
-    R: DeserializeOwned + Debug,
+    R: DeserializeOwned,
 {
     let mut raw_bytes_received = Vec::new();
     reader.read_to_end(&mut raw_bytes_received).await.unwrap();
