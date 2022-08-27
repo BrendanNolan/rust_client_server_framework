@@ -9,7 +9,7 @@ use tokio::{
     sync::mpsc::Receiver,
 };
 
-pub async fn create_task_manager<A, S, R>(socket_address: A, mut rx: Receiver<Command<S, R>>)
+pub async fn create_connection_manager<A, S, R>(socket_address: A, mut rx: Receiver<Command<S, R>>)
 where
     A: ToSocketAddrs,
     S: Serialize + Debug,

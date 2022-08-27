@@ -1,14 +1,17 @@
 use tokio::sync::{mpsc, oneshot};
 
-use client::command::Command;
-use client::task_manager;
+use connection::command::Command;
+use connection::connection_manager;
 
 type StringCommand = Command<u32, String>;
 
 #[tokio::main]
 async fn main() {
     let (tx, rx) = mpsc::channel::<StringCommand>(32);
-    let manager = tokio::spawn(task_manager::create_task_manager("127.0.0.1:6379", rx));
+    let manager = tokio::spawn(connection_manager::create_connection_manager(
+        "127.0.0.1:6379",
+        rx,
+    ));
     let client = tokio::spawn(create_client_task(tx));
     client.await.unwrap();
     manager.await.unwrap();
