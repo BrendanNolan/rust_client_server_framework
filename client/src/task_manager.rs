@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use bincode::{self};
 use tokio::{
-    io::{AsyncWriteExt, AsyncReadExt},
+    io::{AsyncWriteExt, AsyncReadExt, self, WriteHalf, ReadHalf},
     net::{ToSocketAddrs,TcpStream},
     sync::mpsc::Receiver,
 };
@@ -16,13 +16,24 @@ where
     S: Serialize + Debug,
     R: DeserializeOwned + Debug,
 {
-    let mut stream = TcpStream::connect(socket_address).await.unwrap();
+    let stream = TcpStream::connect(socket_address).await.unwrap();
+    let (mut reader, mut writer) = io::split(stream);
     while let Some(command) = rx.recv().await {
-        let raw_bytes_to_send = bincode::serialize(&command.to_send).unwrap();
-        stream.write(&raw_bytes_to_send).await.unwrap();
-        let mut raw_bytes_received = Vec::new();
-        stream.read_to_end(&mut raw_bytes_received).await.unwrap();
-        let received: R = bincode::deserialize(&raw_bytes_received).unwrap();
-        command.responder.send(Some(received)).unwrap();
+        send(&command.to_send, &mut writer).await;
+        let received = receive::<R>(&mut reader).await;
+        command.responder.send(received.ok()).unwrap();
     }
+}
+
+async fn send(message: &(impl Serialize + Debug), writer: &mut WriteHalf<TcpStream>) {
+    let raw_bytes_to_send = bincode::serialize(message).unwrap();
+    writer.write_all(&raw_bytes_to_send).await.unwrap();
+}
+
+async fn receive<R>(reader: &mut ReadHalf<TcpStream>) -> bincode::Result<R>
+where R: DeserializeOwned + Debug,
+{
+    let mut raw_bytes_received = Vec::new();
+    reader.read_to_end(&mut raw_bytes_received).await.unwrap();
+    bincode::deserialize::<R>(&raw_bytes_received)
 }
