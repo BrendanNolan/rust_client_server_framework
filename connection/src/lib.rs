@@ -1,2 +1,4 @@
 pub mod command;
-pub mod connection_manager;
+mod connection_manager;
+
+pub use connection_manager::create_connection_manager;
