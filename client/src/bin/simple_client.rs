@@ -1,9 +1,10 @@
+use client::tasks;
 use tokio::{
     net::TcpStream,
     sync::{mpsc, oneshot},
 };
 
-use connection::command::Command;
+use connection_utils::command::Command;
 
 type StringCommand = Command<u32, String>;
 
@@ -11,7 +12,7 @@ type StringCommand = Command<u32, String>;
 async fn main() {
     let (tx, rx) = mpsc::channel::<StringCommand>(32);
     let stream = TcpStream::connect("127.0.0.1:6379").await.unwrap();
-    let manager = tokio::spawn(connection::create_connection_manager(stream, rx));
+    let manager = tokio::spawn(tasks::create_connection_manager(stream, rx));
     let client = tokio::spawn(create_client_task(tx));
     client.await.unwrap();
     manager.await.unwrap();

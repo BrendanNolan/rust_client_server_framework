@@ -2,6 +2,6 @@
 
 members = [
     "client",
-    "connection",
+    "connection_utils",
     "server",
 ]

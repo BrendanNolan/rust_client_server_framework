@@ -9,7 +9,7 @@ where
     R: DeserializeOwned + Debug,
 {
     pub to_send: S,
-    pub responder: Sender<Option<R>>,
+    pub responder: Sender<Option<R>>, // TODO: Is this always how we want to communicate?
 }
 
 impl<S, R> Debug for Command<S, R>
