@@ -192,6 +192,11 @@ checksum = "0f747710de3dcd43b88c9168773254e809d8ddbdf9653b84e2554ab219f17860"
 [[package]]
 name = "server"
 version = "0.1.0"
+dependencies = [
+ "connection_utils",
+ "serde",
+ "tokio",
+]
 
 [[package]]
 name = "signal-hook-registry"
