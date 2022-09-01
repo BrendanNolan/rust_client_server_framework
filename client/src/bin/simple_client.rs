@@ -6,11 +6,11 @@ use tokio::{
 
 use connection_utils::command::Command;
 
-type StringCommand = Command<u32, String>;
+type IntStringCommand = Command<u32, String>;
 
 #[tokio::main]
 async fn main() {
-    let (tx, rx) = mpsc::channel::<StringCommand>(32);
+    let (tx, rx) = mpsc::channel::<IntStringCommand>(32);
     let stream = TcpStream::connect("127.0.0.1:6379").await.unwrap();
     let manager = tokio::spawn(tasks::create_connection_manager(stream, rx));
     let client = tokio::spawn(create_client_task(tx));
@@ -18,9 +18,9 @@ async fn main() {
     manager.await.unwrap();
 }
 
-async fn create_client_task(tx: mpsc::Sender<StringCommand>) {
+async fn create_client_task(tx: mpsc::Sender<IntStringCommand>) {
     let (response_tx, response_rx) = oneshot::channel();
-    tx.send(StringCommand {
+    tx.send(IntStringCommand {
         data: 147,
         responder: response_tx,
     })
