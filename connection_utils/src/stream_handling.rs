@@ -5,9 +5,11 @@ use tokio::{
     net::TcpStream,
 };
 
+type ByteArray = Vec<u8>;
+
 struct ByteMessage {
-    size: Vec<u8>,
-    data: Vec<u8>,
+    size: ByteArray,
+    data: ByteArray,
 }
 
 fn convert_to_byte_message(item: &impl Communicable) -> ByteMessage {
@@ -30,7 +32,7 @@ async fn receive_first_u64(reader: &mut ReadHalf<TcpStream>) -> bincode::Result<
 
 pub async fn receive<R: DeserializeOwned>(reader: &mut ReadHalf<TcpStream>) -> bincode::Result<R> {
     let num_bytes_to_read = receive_first_u64(reader).await.unwrap();
-    let mut raw_bytes_received = Vec::new();
+    let mut raw_bytes_received = ByteArray::new();
     raw_bytes_received.resize(num_bytes_to_read as usize, 0 as u8);
     reader.read_exact(&mut raw_bytes_received).await.unwrap();
     bincode::deserialize::<R>(&raw_bytes_received)
