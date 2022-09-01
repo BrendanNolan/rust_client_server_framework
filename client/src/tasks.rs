@@ -8,7 +8,7 @@ where
 {
     let (mut reader, mut writer) = io::split(stream);
     while let Some(command) = rx.recv().await {
-        stream_handling::send(&command.to_send, &mut writer).await;
+        stream_handling::send(&command.data, &mut writer).await;
         let received = stream_handling::receive::<R>(&mut reader).await;
         command.responder.send(received.ok()).unwrap();
     }

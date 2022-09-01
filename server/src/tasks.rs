@@ -8,14 +8,11 @@ where
 {
     let (mut reader, mut writer) = io::split(stream);
     loop {
-        let message = stream_handling::receive::<R>(&mut reader).await.unwrap();
-        let (tx_oneshot, rx_oneshot) = oneshot::channel::<Option<S>>();
-        let command = Command {
-            to_send: message,
-            responder: tx_oneshot,
-        };
+        let data = stream_handling::receive::<R>(&mut reader).await.unwrap();
+        let (responder, response_receiver) = oneshot::channel::<Option<S>>();
+        let command = Command { data, responder };
         tx.send(command).await.unwrap(); // The receiver should use command.responder to let us know the result of the job.
-        if let Ok(response) = rx_oneshot.await {
+        if let Ok(response) = response_receiver.await {
             stream_handling::send(&response, &mut writer).await;
         }
     }

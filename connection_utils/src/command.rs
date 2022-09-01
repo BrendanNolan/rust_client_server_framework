@@ -11,7 +11,7 @@ where
     S: Communicable,
     R: Communicable,
 {
-    pub to_send: S,
+    pub data: S,
     pub responder: Sender<Option<R>>, // TODO: Is this always how we want to communicate?
 }
 
@@ -21,6 +21,6 @@ where
     R: Communicable,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        self.to_send.fmt(f)
+        self.data.fmt(f)
     }
 }

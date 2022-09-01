@@ -21,7 +21,7 @@ async fn main() {
 async fn create_client_task(tx: mpsc::Sender<StringCommand>) {
     let (response_tx, response_rx) = oneshot::channel();
     tx.send(StringCommand {
-        to_send: 147,
+        data: 147,
         responder: response_tx,
     })
     .await
