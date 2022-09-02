@@ -1,4 +1,4 @@
-use super::command::Communicable;
+use super::Communicable;
 use serde::de::DeserializeOwned;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
@@ -33,7 +33,7 @@ async fn receive_first_u64(reader: &mut ReadHalf<TcpStream>) -> bincode::Result<
 pub async fn receive<R: DeserializeOwned>(reader: &mut ReadHalf<TcpStream>) -> bincode::Result<R> {
     let num_bytes_to_read = receive_first_u64(reader).await.unwrap();
     let mut raw_bytes_received = ByteArray::new();
-    raw_bytes_received.resize(num_bytes_to_read as usize, 0 as u8);
+    raw_bytes_received.resize(num_bytes_to_read as usize, 0_u8);
     reader.read_exact(&mut raw_bytes_received).await.unwrap();
     bincode::deserialize::<R>(&raw_bytes_received)
 }

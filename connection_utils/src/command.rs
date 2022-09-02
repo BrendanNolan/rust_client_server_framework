@@ -1,10 +1,6 @@
+use super::Communicable;
 use std::fmt::{Debug, Error, Formatter};
-
-use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::oneshot::Sender;
-
-pub trait Communicable: Serialize + DeserializeOwned + Debug {}
-impl<T> Communicable for T where T: Serialize + DeserializeOwned + Debug {}
 
 pub struct Command<S, R>
 where
@@ -13,6 +9,16 @@ where
 {
     pub data: S,
     pub responder: Sender<Option<R>>, // TODO: Is this always how we want to communicate?
+}
+
+pub fn process<F, S, R>(command: Command<S, R>, f: F)
+where
+    S: Communicable,
+    R: Communicable,
+    F: FnOnce(&S) -> Option<R>,
+{
+    let response = f(&command.data);
+    command.responder.send(response).unwrap();
 }
 
 impl<S, R> Debug for Command<S, R>

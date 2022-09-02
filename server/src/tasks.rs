@@ -1,5 +1,14 @@
-use connection_utils::{command::Command, command::Communicable, stream_handling};
-use tokio::{io, net::TcpStream, sync::mpsc::Sender, sync::oneshot};
+use connection_utils::{
+    command::{self, Command},
+    stream_handling, Communicable, TriviallyThreadable,
+};
+use threadpool::ThreadPool;
+use tokio::{
+    io,
+    net::TcpStream,
+    sync::mpsc::{Receiver, Sender},
+    sync::oneshot,
+};
 
 pub async fn create_connection_manager<R, S>(stream: TcpStream, tx: Sender<Command<R, S>>)
 where
@@ -15,5 +24,19 @@ where
         if let Ok(response) = response_receiver.await {
             stream_handling::send(&response, &mut writer).await;
         }
+    }
+}
+
+pub async fn create_job_handler<R, S, F>(mut rx: Receiver<Command<R, S>>, f: F)
+where
+    R: Communicable,
+    S: Communicable,
+    F: FnOnce(&R) -> Option<S> + TriviallyThreadable + Copy,
+{
+    let pool = ThreadPool::new(8);
+    while let Some(command) = rx.recv().await {
+        pool.execute(move || {
+            command::process(command, f);
+        });
     }
 }
