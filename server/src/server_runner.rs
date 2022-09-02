@@ -14,9 +14,14 @@ where
 {
     let (tx, rx) = mpsc::channel::<Command<R, S>>(10);
     let listener = TcpListener::bind(address).await.unwrap();
-    tokio::spawn(tasks::create_job_handler(rx, f));
-    loop {
-        let (stream, _) = listener.accept().await.unwrap();
-        tokio::spawn(tasks::create_connection_manager(stream, tx.clone()));
+    let jobs_task = tokio::spawn(tasks::create_job_handler(rx, f));
+    let mut connection_tasks = Vec::new();
+    while let Ok((stream, _)) = listener.accept().await {
+        let connection_task = tokio::spawn(tasks::create_connection_manager(stream, tx.clone()));
+        connection_tasks.push(connection_task);
     }
+    for connection_task in connection_tasks {
+        connection_task.await.unwrap();
+    }
+    jobs_task.await.unwrap();
 }

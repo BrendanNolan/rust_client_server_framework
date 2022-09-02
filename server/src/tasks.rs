@@ -16,12 +16,11 @@ where
     R: Communicable,
 {
     let (mut reader, mut writer) = io::split(stream);
-    loop {
-        let data = stream_handling::receive::<R>(&mut reader).await.unwrap();
+    while let Some(data) = stream_handling::receive::<R>(&mut reader).await {
         let (responder, response_receiver) = oneshot::channel::<Option<S>>();
         let command = Command { data, responder };
         tx.send(command).await.unwrap(); // The receiver should use command.responder to let us know the result of the job.
-        if let Ok(response) = response_receiver.await {
+        if let Ok(Some(response)) = response_receiver.await {
             stream_handling::send(&response, &mut writer).await;
         }
     }

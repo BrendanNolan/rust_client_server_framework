@@ -10,6 +10,6 @@ where
     while let Some(command) = rx.recv().await {
         stream_handling::send(&command.data, &mut writer).await;
         let received = stream_handling::receive::<R>(&mut reader).await;
-        command.responder.send(received.ok()).unwrap();
+        command.responder.send(received).unwrap();
     }
 }

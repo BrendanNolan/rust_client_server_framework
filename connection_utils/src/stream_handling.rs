@@ -24,16 +24,16 @@ pub async fn send(data: &impl Communicable, writer: &mut WriteHalf<TcpStream>) {
     writer.write_all(&byte_message.data).await.unwrap();
 }
 
-async fn receive_first_u64(reader: &mut ReadHalf<TcpStream>) -> bincode::Result<u64> {
+async fn receive_first_u64(reader: &mut ReadHalf<TcpStream>) -> Option<u64> {
     let mut raw_bytes_received: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 0];
-    reader.read_exact(&mut raw_bytes_received).await.unwrap();
-    bincode::deserialize::<u64>(&raw_bytes_received)
+    reader.read_exact(&mut raw_bytes_received).await.ok()?;
+    bincode::deserialize::<u64>(&raw_bytes_received).ok()
 }
 
-pub async fn receive<R: DeserializeOwned>(reader: &mut ReadHalf<TcpStream>) -> bincode::Result<R> {
-    let num_bytes_to_read = receive_first_u64(reader).await.unwrap();
+pub async fn receive<R: DeserializeOwned>(reader: &mut ReadHalf<TcpStream>) -> Option<R> {
+    let num_bytes_to_read = receive_first_u64(reader).await?;
     let mut raw_bytes_received = ByteArray::new();
     raw_bytes_received.resize(num_bytes_to_read as usize, 0_u8);
-    reader.read_exact(&mut raw_bytes_received).await.unwrap();
-    bincode::deserialize::<R>(&raw_bytes_received)
+    reader.read_exact(&mut raw_bytes_received).await.ok()?;
+    bincode::deserialize::<R>(&raw_bytes_received).ok()
 }
