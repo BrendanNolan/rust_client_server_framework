@@ -14,7 +14,7 @@ where
     R: Communicable,
 {
     let (mut reader, mut writer) = io::split(stream);
-    while let Some(data) = stream_handling::receive::<R>(&mut reader).await {
+    while let Ok(data) = stream_handling::receive::<R>(&mut reader).await {
         let (responder, response_receiver) = oneshot::channel::<S>();
         let command = Command { data, responder };
         tx.send(command).await.unwrap();
