@@ -17,7 +17,7 @@ where
     while let Some(data) = stream_handling::receive::<R>(&mut reader).await {
         let (responder, response_receiver) = oneshot::channel::<S>();
         let command = Command { data, responder };
-        tx.send(command).await.unwrap(); // The receiver should use command.responder to let us know the result of the job.
+        tx.send(command).await.unwrap();
         let response = response_receiver.await.unwrap();
         stream_handling::send(&response, &mut writer).await;
     }
