@@ -1,5 +1,5 @@
-use super::tasks;
-use connection_utils::{command::Command, Communicable, TriviallyThreadable};
+use super::{command::Command, tasks};
+use connection_utils::{Communicable, TriviallyThreadable};
 use tokio::{
     net::{TcpListener, ToSocketAddrs},
     sync::mpsc::{self},
@@ -10,7 +10,7 @@ where
     R: Communicable,
     S: Communicable,
     A: ToSocketAddrs,
-    F: FnOnce(&R) -> Option<S> + TriviallyThreadable + Copy,
+    F: FnOnce(&R) -> S + TriviallyThreadable + Copy,
 {
     let (tx, rx) = mpsc::channel::<Command<R, S>>(10);
     let listener = TcpListener::bind(address).await.unwrap();

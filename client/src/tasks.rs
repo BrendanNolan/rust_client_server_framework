@@ -1,4 +1,5 @@
-use connection_utils::{command::Command, stream_handling, Communicable};
+use super::command::Command;
+use connection_utils::{stream_handling, Communicable};
 use tokio::{io, net::TcpStream, sync::mpsc::Receiver};
 
 pub async fn create_connection_manager<S, R>(stream: TcpStream, mut rx: Receiver<Command<S, R>>)

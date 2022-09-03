@@ -1,7 +1,7 @@
 use server::server_runner;
 
-fn put_int_in_string(i: &u32) -> Option<String> {
-    Some(format!("The number is: {}", i))
+fn put_int_in_string(i: &u32) -> String {
+    format!("The number is: {}", i)
 }
 
 #[tokio::main]

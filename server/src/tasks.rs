@@ -1,7 +1,5 @@
-use connection_utils::{
-    command::{self, Command},
-    stream_handling, Communicable, TriviallyThreadable,
-};
+use super::command::{self, Command};
+use connection_utils::{stream_handling, Communicable, TriviallyThreadable};
 use threadpool::ThreadPool;
 use tokio::{
     io,
@@ -17,12 +15,11 @@ where
 {
     let (mut reader, mut writer) = io::split(stream);
     while let Some(data) = stream_handling::receive::<R>(&mut reader).await {
-        let (responder, response_receiver) = oneshot::channel::<Option<S>>();
+        let (responder, response_receiver) = oneshot::channel::<S>();
         let command = Command { data, responder };
         tx.send(command).await.unwrap(); // The receiver should use command.responder to let us know the result of the job.
-        if let Ok(Some(response)) = response_receiver.await {
-            stream_handling::send(&response, &mut writer).await;
-        }
+        let response = response_receiver.await.unwrap();
+        stream_handling::send(&response, &mut writer).await;
     }
 }
 
@@ -30,7 +27,7 @@ pub async fn create_job_handler<R, S, F>(mut rx: Receiver<Command<R, S>>, f: F)
 where
     R: Communicable,
     S: Communicable,
-    F: FnOnce(&R) -> Option<S> + TriviallyThreadable + Copy,
+    F: FnOnce(&R) -> S + TriviallyThreadable + Copy,
 {
     let pool = ThreadPool::new(8);
     while let Some(command) = rx.recv().await {

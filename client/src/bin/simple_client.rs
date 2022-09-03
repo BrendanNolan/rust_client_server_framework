@@ -1,10 +1,8 @@
-use client::tasks;
+use client::{command::Command, tasks};
 use tokio::{
     net::TcpStream,
     sync::{mpsc, oneshot},
 };
-
-use connection_utils::command::Command;
 
 type IntStringCommand = Command<u32, String>;
 
