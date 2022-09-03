@@ -9,4 +9,4 @@ edition = "2021"
 connection_utils = { path = "../connection_utils" }
 serde = "1.0.144"
 tokio = { version = "1", features = ["full"] }
-futures = { version = "0.3.24", features = ["thread-pool"] }
+threadpool = "1.8.1"
