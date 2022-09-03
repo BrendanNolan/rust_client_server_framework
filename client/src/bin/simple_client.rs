@@ -25,5 +25,9 @@ async fn create_client_task(tx: mpsc::Sender<IntStringCommand>) {
     .await
     .unwrap();
     let response = response_rx.await;
-    println!("Got a response {:?}", response);
+    match response {
+        Ok(Some(response)) => println!("Received a response: {:?}", response),
+        Ok(None) => println!("Failed to read response."),
+        Err(_) => panic!("Client unexpectedly failed to receive a response"),
+    }
 }
