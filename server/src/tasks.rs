@@ -6,6 +6,7 @@ use tokio::{
     net::TcpStream,
     sync::mpsc::{Receiver, Sender},
     sync::oneshot,
+    task,
 };
 
 pub async fn create_connection_manager<R, S>(stream: TcpStream, tx: Sender<Command<R, S>>)
@@ -35,4 +36,7 @@ where
             command::process(command, f);
         });
     }
+    task::spawn_blocking(move || {
+        pool.join();
+    });
 }
