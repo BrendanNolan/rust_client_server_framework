@@ -1,5 +1,6 @@
 use super::command::{self, Command};
 use connection_utils::{stream_handling, Communicable, TriviallyThreadable};
+use futures::stream::{FuturesUnordered, StreamExt};
 use threadpool::ThreadPool;
 use tokio::{
     io,
@@ -15,12 +16,20 @@ where
     R: Communicable,
 {
     let (mut reader, mut writer) = io::split(stream);
-    while let Ok(data) = stream_handling::receive::<R>(&mut reader).await {
-        let (responder, response_receiver) = oneshot::channel::<S>();
-        let command = Command { data, responder };
-        tx.send(command).await.unwrap();
-        let response = response_receiver.await.unwrap();
-        stream_handling::send(&response, &mut writer).await;
+    let mut response_receivers = FuturesUnordered::new();
+    loop {
+        tokio::select! {
+            Ok(data) = stream_handling::receive::<R>(&mut reader) => {
+                let (responder, response_receiver) = oneshot::channel::<S>();
+                let command = Command { data, responder };
+                tx.send(command).await.unwrap();
+                response_receivers.push(response_receiver);
+            },
+            Some(Ok(response)) = response_receivers.next() => {
+                stream_handling::send(&response, &mut writer).await;
+            },
+            else => break,
+        }
     }
 }
 
