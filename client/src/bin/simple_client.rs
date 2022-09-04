@@ -11,8 +11,11 @@ async fn main() {
     let (tx, rx) = mpsc::channel::<IntStringCommand>(32);
     let stream = TcpStream::connect("127.0.0.1:6379").await.unwrap();
     let manager = tokio::spawn(tasks::create_connection_manager(stream, rx));
-    let client = tokio::spawn(create_client_task(tx));
-    client.await.unwrap();
+    let tx_clone = tx.clone();
+    let client_0 = tokio::spawn(create_client_task(tx));
+    let client_1 = tokio::spawn(create_client_task(tx_clone));
+    client_0.await.unwrap();
+    client_1.await.unwrap();
     manager.await.unwrap();
 }
 
