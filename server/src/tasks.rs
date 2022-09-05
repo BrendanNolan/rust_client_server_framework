@@ -1,5 +1,8 @@
 use super::command::{self, Command};
-use connection_utils::{stream_handling, Communicable, TriviallyThreadable};
+use connection_utils::{
+    incremental_read::IncrementalReadStorage, stream_serialization, Communicable,
+    TriviallyThreadable,
+};
 use futures::stream::{FuturesUnordered, StreamExt};
 use threadpool::ThreadPool;
 use tokio::{
@@ -17,16 +20,21 @@ where
 {
     let (mut reader, mut writer) = io::split(stream);
     let mut response_receivers = FuturesUnordered::new();
+    let mut stream_read_storage = IncrementalReadStorage::default();
     loop {
         tokio::select! {
-            Ok(data) = stream_handling::receive::<R>(&mut reader) => {
-                let (responder, response_receiver) = oneshot::channel::<S>();
-                let command = Command { data, responder };
-                tx.send(command).await.unwrap();
-                response_receivers.push(response_receiver);
+            _ = stream_read_storage.progress_filling(&mut reader) => {
+                if stream_read_storage.is_full() {
+                    let data = bincode::deserialize::<R>(&stream_read_storage.buffer).unwrap();
+                    let (responder, response_receiver) = oneshot::channel::<S>();
+                    let command = Command { data, responder };
+                    tx.send(command).await.unwrap();
+                    response_receivers.push(response_receiver);
+                    stream_read_storage.reset();
+                }
             },
             Some(Ok(response)) = response_receivers.next() => {
-                stream_handling::send(&response, &mut writer).await;
+                stream_serialization::send(&response, &mut writer).await;
             },
             else => break,
         }

@@ -49,6 +49,7 @@ name = "connection_utils"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "bytes",
  "serde",
  "tokio",
 ]
@@ -288,6 +289,7 @@ checksum = "0f747710de3dcd43b88c9168773254e809d8ddbdf9653b84e2554ab219f17860"
 name = "server"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "connection_utils",
  "futures",
  "serde",
