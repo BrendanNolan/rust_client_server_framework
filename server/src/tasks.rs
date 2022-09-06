@@ -25,11 +25,7 @@ where
         tokio::select! {
             _ = stream_read_storage.progress_filling(&mut reader) => {
                 if stream_read_storage.is_full() {
-                    let data = bincode::deserialize::<R>(&stream_read_storage.buffer).unwrap();
-                    let (responder, response_receiver) = oneshot::channel::<S>();
-                    let command = Command { data, responder };
-                    tx.send(command).await.unwrap();
-                    response_receivers.push(response_receiver);
+                    dispatch_job_from_stored_data(&stream_read_storage, &mut response_receivers, &tx).await;
                     stream_read_storage.reset();
                 }
             },
@@ -39,6 +35,30 @@ where
             else => break,
         }
     }
+}
+
+async fn dispatch_job_from_stored_data<S, R>(
+    stream_read_storage: &IncrementalReadStorage,
+    response_receivers: &mut FuturesUnordered<oneshot::Receiver<R>>,
+    tx: &Sender<Command<S, R>>,
+) where
+    S: Communicable,
+    R: Communicable,
+{
+    let data = bincode::deserialize::<S>(&stream_read_storage.buffer).unwrap();
+    let response_receiver = dispatch_job(data, tx).await;
+    response_receivers.push(response_receiver);
+}
+
+async fn dispatch_job<S, R>(data: S, tx: &Sender<Command<S, R>>) -> oneshot::Receiver<R>
+where
+    S: Communicable,
+    R: Communicable,
+{
+    let (responder, response_receiver) = oneshot::channel::<R>();
+    let command = Command { data, responder };
+    tx.send(command).await.unwrap();
+    response_receiver
 }
 
 pub async fn create_job_handler<R, S, F>(mut rx: Receiver<Command<R, S>>, f: F)
