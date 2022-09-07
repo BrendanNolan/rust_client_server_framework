@@ -23,7 +23,11 @@ where
     let mut stream_read_storage = IncrementalReadStorage::default();
     loop {
         tokio::select! {
-            _ = stream_read_storage.progress_filling(&mut reader) => {
+            fill_result = stream_read_storage.progress_filling(&mut reader) => {
+                if fill_result.is_err() {
+                    println!("Shutting down server connection - client disconnected");
+                    break;
+                }
                 if stream_read_storage.is_full() {
                     dispatch_job_from_stored_data(&stream_read_storage, &mut response_receivers, &tx).await;
                     stream_read_storage.reset();

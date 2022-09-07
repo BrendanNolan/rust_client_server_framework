@@ -1,6 +1,6 @@
 use bytes::BytesMut;
 use tokio::{
-    io::{AsyncReadExt, ReadHalf},
+    io::{AsyncReadExt, ReadHalf, Result},
     net::TcpStream,
 };
 
@@ -11,15 +11,15 @@ pub struct IncrementalReadStorage {
 }
 
 impl IncrementalReadStorage {
-    pub async fn progress_filling(&mut self, reader: &mut ReadHalf<TcpStream>) {
+    pub async fn progress_filling(&mut self, reader: &mut ReadHalf<TcpStream>) -> Result<usize> {
         if self.is_full() {
             panic!("IncrementalReadStorage Already Full");
         }
         if !self.is_initialized() {
-            let num_bytes_to_read = reader.read_u64().await.unwrap();
+            let num_bytes_to_read = reader.read_u64().await?;
             self.set_up(num_bytes_to_read as usize);
         }
-        let _ = reader.read_buf(&mut self.buffer).await;
+        reader.read_buf(&mut self.buffer).await
     }
 
     pub fn is_full(&self) -> bool {
