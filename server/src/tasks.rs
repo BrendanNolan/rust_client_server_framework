@@ -1,49 +1,52 @@
 use super::command::{self, Command};
+use async_trait::async_trait;
 use connection_utils::{
-    incremental_read::IncrementalReadStorage, stream_serialization, Communicable,
+    incremental_read::IncrementalReadStorage, stream_serialization, Communicable, DataPoster,
     TriviallyThreadable,
 };
 use futures::stream::{FuturesUnordered, StreamExt};
 use threadpool::ThreadPool;
-use tokio::{
-    io,
-    net::TcpStream,
-    sync::mpsc::{Receiver, Sender},
-    sync::oneshot,
-    task,
-};
+use tokio::{io, net::TcpStream, sync::mpsc, sync::oneshot, task};
 
-pub async fn create_connection_manager<R, S>(stream: TcpStream, tx: Sender<Command<R, S>>)
+struct TaggedDataPoster<D, R>
+where
+    D: Communicable,
+    R: Communicable,
+{
+    tx: mpsc::Sender<Command<D, R>>,
+    responder: mpsc::Sender<R>,
+}
+
+#[async_trait]
+impl<D, R> DataPoster<D> for TaggedDataPoster<D, R>
+where
+    D: Communicable,
+    R: Communicable,
+{
+    async fn post(&self, data: D) {
+        self.tx
+            .send(Command {
+                data,
+                responder: self.responder,
+            })
+            .await
+            .unwrap()
+    }
+}
+
+pub async fn create_connection_manager<R, S>(stream: TcpStream, tx: mpsc::Sender<Command<R, S>>)
 where
     S: Communicable,
     R: Communicable,
 {
-    let (mut reader, mut writer) = io::split(stream);
-    let mut response_receivers = FuturesUnordered::new();
-    let mut stream_read_storage = IncrementalReadStorage::default();
-    loop {
-        tokio::select! {
-            fill_result = stream_read_storage.progress_filling(&mut reader) => {
-                if fill_result.is_err() {
-                    println!("Shutting down server connection - client disconnected");
-                    break;
-                }
-                if stream_read_storage.is_full() {
-                    let data = bincode::deserialize::<R>(&stream_read_storage.buffer).unwrap();
-                    let response_receiver = dispatch_job(data, &tx).await;
-                    response_receivers.push(response_receiver);
-                    stream_read_storage.reset();
-                }
-            },
-            Some(Ok(response)) = response_receivers.next() => {
-                stream_serialization::send(&response, &mut writer).await;
-            },
-            else => break,
-        }
-    }
+    let (tx_s, mut rx_s) = mpsc::channel::<S>(10);
+    let poster = TaggedDataPoster {
+        tx,
+        responder: tx_s,
+    };
 }
 
-async fn dispatch_job<S, R>(data: S, tx: &Sender<Command<S, R>>) -> oneshot::Receiver<R>
+async fn dispatch_job<S, R>(data: S, tx: &mpsc::Sender<Command<S, R>>) -> oneshot::Receiver<R>
 where
     S: Communicable,
     R: Communicable,
@@ -54,7 +57,7 @@ where
     response_receiver
 }
 
-pub async fn create_job_handler<R, S, F>(mut rx: Receiver<Command<R, S>>, f: F)
+pub async fn create_job_handler<R, S, F>(mut rx: mpsc::Receiver<Command<R, S>>, f: F)
 where
     R: Communicable,
     S: Communicable,
