@@ -29,7 +29,9 @@ where
                     break;
                 }
                 if stream_read_storage.is_full() {
-                    dispatch_job_from_stored_data(&stream_read_storage, &mut response_receivers, &tx).await;
+                    let data = bincode::deserialize::<R>(&stream_read_storage.buffer).unwrap();
+                    let response_receiver = dispatch_job(data, &tx).await;
+                    response_receivers.push(response_receiver);
                     stream_read_storage.reset();
                 }
             },
@@ -39,19 +41,6 @@ where
             else => break,
         }
     }
-}
-
-async fn dispatch_job_from_stored_data<S, R>(
-    stream_read_storage: &IncrementalReadStorage,
-    response_receivers: &mut FuturesUnordered<oneshot::Receiver<R>>,
-    tx: &Sender<Command<S, R>>,
-) where
-    S: Communicable,
-    R: Communicable,
-{
-    let data = bincode::deserialize::<S>(&stream_read_storage.buffer).unwrap();
-    let response_receiver = dispatch_job(data, tx).await;
-    response_receivers.push(response_receiver);
 }
 
 async fn dispatch_job<S, R>(data: S, tx: &Sender<Command<S, R>>) -> oneshot::Receiver<R>
