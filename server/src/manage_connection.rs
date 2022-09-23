@@ -1,19 +1,11 @@
-use super::command::{self, Command};
+use crate::jobs::JobDispatcher;
 use connection_utils::{
     incremental_read::IncrementalReadStorage, stream_serialization, Communicable,
-    TriviallyThreadable,
 };
 use futures::stream::{FuturesUnordered, StreamExt};
-use threadpool::ThreadPool;
-use tokio::{
-    io,
-    net::TcpStream,
-    sync::mpsc::{Receiver, Sender},
-    sync::oneshot,
-    task,
-};
+use tokio::{io, net::TcpStream};
 
-pub async fn create_connection_manager<R, S>(stream: TcpStream, tx: Sender<Command<R, S>>)
+pub async fn create_connection_manager<R, S>(stream: TcpStream, job_dispatcher: JobDispatcher<R, S>)
 where
     S: Communicable,
     R: Communicable,
@@ -30,7 +22,7 @@ where
                 }
                 if stream_read_storage.is_full() {
                     let data = bincode::deserialize::<R>(&stream_read_storage.buffer).unwrap();
-                    let response_receiver = dispatch_job(data, &tx).await;
+                    let response_receiver = job_dispatcher.dispatch_job(data).await;
                     response_receivers.push(response_receiver);
                     stream_read_storage.reset();
                 }
@@ -41,32 +33,4 @@ where
             else => break,
         }
     }
-}
-
-async fn dispatch_job<S, R>(data: S, tx: &Sender<Command<S, R>>) -> oneshot::Receiver<R>
-where
-    S: Communicable,
-    R: Communicable,
-{
-    let (responder, response_receiver) = oneshot::channel::<R>();
-    let command = Command { data, responder };
-    tx.send(command).await.unwrap();
-    response_receiver
-}
-
-pub async fn create_job_handler<R, S, F>(mut rx: Receiver<Command<R, S>>, f: F)
-where
-    R: Communicable,
-    S: Communicable,
-    F: FnOnce(&R) -> S + TriviallyThreadable + Copy,
-{
-    let pool = ThreadPool::new(8);
-    while let Some(command) = rx.recv().await {
-        pool.execute(move || {
-            command::process(command, f);
-        });
-    }
-    task::spawn_blocking(move || {
-        pool.join();
-    });
 }
