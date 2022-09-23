@@ -2,7 +2,7 @@ use crate::{jobs, manage_connection};
 use connection_utils::{Communicable, TriviallyThreadable};
 use tokio::net::{TcpListener, ToSocketAddrs};
 
-pub async fn run_server<R, S, A, F>(address: A, f: F)
+pub async fn run_server<R, S, A, F>(address: A, f: F, jobs_buffer_size: usize)
 where
     R: Communicable,
     S: Communicable,
@@ -10,7 +10,7 @@ where
     F: FnOnce(&R) -> S + TriviallyThreadable + Copy,
 {
     let listener = TcpListener::bind(address).await.unwrap();
-    let (job_dispatcher, jobs_task) = jobs::spawn_jobs_task(f, 10);
+    let (job_dispatcher, jobs_task) = jobs::spawn_jobs_task(f, jobs_buffer_size);
     let mut connection_tasks = Vec::new();
     while let Ok((stream, _)) = listener.accept().await {
         let connection_task = tokio::spawn(manage_connection::create_connection_manager(
