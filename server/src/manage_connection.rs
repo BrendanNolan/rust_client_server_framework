@@ -5,10 +5,12 @@ use connection_utils::{
 use futures::stream::{FuturesUnordered, StreamExt};
 use tokio::{io, net::TcpStream};
 
-pub async fn create_connection_manager<R, S>(stream: TcpStream, job_dispatcher: JobDispatcher<R, S>)
-where
-    S: Communicable,
-    R: Communicable,
+pub async fn create_connection_manager<ReceiveType, SendType>(
+    stream: TcpStream,
+    job_dispatcher: JobDispatcher<ReceiveType, SendType>,
+) where
+    ReceiveType: Communicable,
+    SendType: Communicable,
 {
     let (mut reader, mut writer) = io::split(stream);
     let mut response_receivers = FuturesUnordered::new();
@@ -21,7 +23,7 @@ where
                     break;
                 }
                 if stream_read_storage.is_full() {
-                    let data = bincode::deserialize::<R>(&stream_read_storage.buffer).unwrap();
+                    let data = bincode::deserialize::<ReceiveType>(&stream_read_storage.buffer).unwrap();
                     let response_receiver = job_dispatcher.dispatch_job(data).await;
                     response_receivers.push(response_receiver);
                     stream_read_storage.reset();
