@@ -1,4 +1,5 @@
 use client::{command::Command, tasks};
+use std::time::SystemTime;
 use tokio::{
     net::TcpStream,
     sync::{mpsc, oneshot},
@@ -17,6 +18,7 @@ async fn main() {
 }
 
 async fn create_client_task(tx: mpsc::Sender<IntStringCommand>) {
+    let begin_time = SystemTime::now();
     for i in 0..10 {
         let (response_tx, response_rx) = oneshot::channel();
         tx.send(IntStringCommand {
@@ -27,7 +29,11 @@ async fn create_client_task(tx: mpsc::Sender<IntStringCommand>) {
         .unwrap();
         let response = response_rx.await;
         match response {
-            Ok(Some(response)) => println!("Received a response: {:?}", response),
+            Ok(Some(response)) => println!(
+                "Received a response: {:?} after {} seconds.",
+                response,
+                begin_time.elapsed().unwrap().as_secs()
+            ),
             Ok(None) => println!("Failed to read response."),
             Err(_) => panic!("Client unexpectedly failed to receive a response"),
         }
