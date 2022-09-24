@@ -45,7 +45,12 @@ async fn create_write_task<SendType>(
 {
     while let Some(response_receiver) = rx.recv().await {
         if let Ok(response) = response_receiver.await {
-            stream_serialization::send(&response, &mut writer).await;
+            if stream_serialization::send(&response, &mut writer)
+                .await
+                .is_err()
+            {
+                break;
+            }
         }
     }
 }

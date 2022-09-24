@@ -11,7 +11,12 @@ pub async fn create_cyclic_connection_manager<S, R>(
 {
     let (mut reader, mut writer) = io::split(stream);
     while let Some(command) = rx.recv().await {
-        stream_serialization::send(&command.data, &mut writer).await;
+        if stream_serialization::send(&command.data, &mut writer)
+            .await
+            .is_err()
+        {
+            break;
+        }
         let received = stream_serialization::receive::<R>(&mut reader).await;
         command.responder.send(received.ok()).unwrap();
     }

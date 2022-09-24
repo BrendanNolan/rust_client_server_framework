@@ -36,10 +36,14 @@ fn convert_to_byte_message(item: &impl Communicable) -> ByteMessage {
     ByteMessage { size, data }
 }
 
-pub async fn send(data: &impl Communicable, writer: &mut WriteHalf<TcpStream>) {
+pub async fn send(
+    data: &impl Communicable,
+    writer: &mut WriteHalf<TcpStream>,
+) -> Result<(), ReadError> {
     let byte_message = convert_to_byte_message(data);
-    writer.write_u64(byte_message.size).await.unwrap();
-    writer.write_all(&byte_message.data).await.unwrap();
+    writer.write_u64(byte_message.size).await?;
+    writer.write_all(&byte_message.data).await?;
+    Ok(())
 }
 
 pub async fn receive<R: DeserializeOwned>(
