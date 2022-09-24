@@ -1,4 +1,3 @@
-pub mod incremental_read;
 pub mod stream_serialization;
 mod traits;
 

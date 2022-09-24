@@ -45,7 +45,7 @@ pub async fn send(data: &impl Communicable, writer: &mut WriteHalf<TcpStream>) {
 pub async fn receive<R: DeserializeOwned>(
     reader: &mut ReadHalf<TcpStream>,
 ) -> Result<R, ReadError> {
-    let num_bytes_to_read = reader.read_u64().await.unwrap();
+    let num_bytes_to_read = reader.read_u64().await?;
     let mut raw_bytes_received = ByteArray::new();
     raw_bytes_received.resize(num_bytes_to_read as usize, 0_u8);
     reader.read_exact(&mut raw_bytes_received).await?;

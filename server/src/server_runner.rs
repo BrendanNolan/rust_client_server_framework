@@ -6,6 +6,7 @@ pub async fn run_server<ReceiveType, SendType, AddressType, Operation>(
     address: AddressType,
     f: Operation,
     jobs_buffer_size: usize,
+    read_write_buffer_size: usize,
 ) where
     ReceiveType: Communicable,
     SendType: Communicable,
@@ -19,6 +20,7 @@ pub async fn run_server<ReceiveType, SendType, AddressType, Operation>(
         let connection_task = tokio::spawn(manage_connection::create_connection_manager(
             stream,
             job_dispatcher.clone(),
+            read_write_buffer_size,
         ));
         connection_tasks.push(connection_task);
     }
