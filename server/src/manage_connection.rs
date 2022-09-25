@@ -1,5 +1,6 @@
 use crate::jobs::JobDispatcher;
 use connection_utils::{stream_serialization, Communicable};
+use futures::{stream::FuturesUnordered, StreamExt};
 use tokio::{
     io::{self, ReadHalf, WriteHalf},
     net::TcpStream,
@@ -43,14 +44,16 @@ async fn create_write_task<SendType>(
 ) where
     SendType: Communicable,
 {
-    while let Some(response_receiver) = rx.recv().await {
-        if let Ok(response) = response_receiver.await {
-            if stream_serialization::send(&response, &mut writer)
-                .await
-                .is_err()
-            {
-                break;
-            }
+    let mut response_receivers = FuturesUnordered::new();
+    loop {
+        tokio::select! {
+            Some(receiver) = rx.recv() => {
+                response_receivers.push(receiver);
+            },
+            Some(Ok(response)) = response_receivers.next() => {
+                let _ = stream_serialization::send(&response, &mut writer).await;
+            },
+            else => break,
         }
     }
 }
