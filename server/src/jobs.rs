@@ -7,21 +7,21 @@ use tokio::{
     task::{self, JoinHandle},
 };
 
-pub struct JobDispatcher<Request, Response>
+pub struct JobDispatcher<Req, Resp>
 where
-    Request: Communicable,
-    Response: Communicable,
+    Req: Communicable,
+    Resp: Communicable,
 {
-    tx: mpsc::Sender<Command<Request, Response>>,
+    tx: mpsc::Sender<Command<Req, Resp>>,
 }
 
-impl<Request, Response> JobDispatcher<Request, Response>
+impl<Req, Resp> JobDispatcher<Req, Resp>
 where
-    Request: Communicable,
-    Response: Communicable,
+    Req: Communicable,
+    Resp: Communicable,
 {
-    pub async fn dispatch_job(&self, data: Request) -> oneshot::Receiver<Response> {
-        let (responder, response_receiver) = oneshot::channel::<Response>();
+    pub async fn dispatch_job(&self, data: Req) -> oneshot::Receiver<Resp> {
+        let (responder, response_receiver) = oneshot::channel::<Resp>();
         let command = Command { data, responder };
         self.tx.send(command).await.unwrap();
         response_receiver
@@ -29,10 +29,10 @@ where
 }
 
 // #[derive(Clone)] does not work - it requires that both generic parameters implement Clone
-impl<Request, Response> Clone for JobDispatcher<Request, Response>
+impl<Req, Resp> Clone for JobDispatcher<Req, Resp>
 where
-    Request: Communicable,
-    Response: Communicable,
+    Req: Communicable,
+    Resp: Communicable,
 {
     fn clone(&self) -> Self {
         JobDispatcher {
@@ -41,27 +41,25 @@ where
     }
 }
 
-pub fn spawn_jobs_task<Request, Response, Operation>(
-    f: Operation,
+pub fn spawn_jobs_task<Req, Resp, Op>(
+    f: Op,
     buffer_size: usize,
-) -> (JobDispatcher<Request, Response>, JoinHandle<()>)
+) -> (JobDispatcher<Req, Resp>, JoinHandle<()>)
 where
-    Request: Communicable,
-    Response: Communicable,
-    Operation: FnOnce(&Request) -> Response + TriviallyThreadable + Copy,
+    Req: Communicable,
+    Resp: Communicable,
+    Op: FnOnce(&Req) -> Resp + TriviallyThreadable + Copy,
 {
     let (tx, rx) = mpsc::channel(buffer_size);
     let join_handle = tokio::spawn(create_jobs_task(rx, f));
     (JobDispatcher { tx }, join_handle)
 }
 
-async fn create_jobs_task<Request, Response, Operation>(
-    mut rx: mpsc::Receiver<Command<Request, Response>>,
-    f: Operation,
-) where
-    Request: Communicable,
-    Response: Communicable,
-    Operation: FnOnce(&Request) -> Response + TriviallyThreadable + Copy,
+async fn create_jobs_task<Req, Resp, Op>(mut rx: mpsc::Receiver<Command<Req, Resp>>, f: Op)
+where
+    Req: Communicable,
+    Resp: Communicable,
+    Op: FnOnce(&Req) -> Resp + TriviallyThreadable + Copy,
 {
     let pool = ThreadPool::new(8);
     while let Some(command) = rx.recv().await {

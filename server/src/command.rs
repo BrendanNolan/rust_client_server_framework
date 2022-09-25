@@ -2,29 +2,29 @@ use connection_utils::Communicable;
 use std::fmt::{Debug, Error, Formatter};
 use tokio::sync::oneshot;
 
-pub struct Command<Request, Response>
+pub struct Command<Req, Resp>
 where
-    Request: Communicable,
-    Response: Communicable,
+    Req: Communicable,
+    Resp: Communicable,
 {
-    pub data: Request,
-    pub responder: oneshot::Sender<Response>,
+    pub data: Req,
+    pub responder: oneshot::Sender<Resp>,
 }
 
-pub fn process<Operation, Request, Response>(command: Command<Request, Response>, f: Operation)
+pub fn process<Req, Resp, Op>(command: Command<Req, Resp>, f: Op)
 where
-    Request: Communicable,
-    Response: Communicable,
-    Operation: FnOnce(&Request) -> Response,
+    Req: Communicable,
+    Resp: Communicable,
+    Op: FnOnce(&Req) -> Resp,
 {
     let response = f(&command.data);
     command.responder.send(response).unwrap();
 }
 
-impl<Request, Response> Debug for Command<Request, Response>
+impl<Req, Resp> Debug for Command<Req, Resp>
 where
-    Request: Communicable,
-    Response: Communicable,
+    Req: Communicable,
+    Resp: Communicable,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         self.data.fmt(f)

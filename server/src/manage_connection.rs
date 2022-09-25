@@ -7,13 +7,13 @@ use tokio::{
     sync::{mpsc, oneshot},
 };
 
-pub async fn create_connection_manager<ReceiveType, SendType>(
+pub async fn create_connection_manager<Req, Resp>(
     stream: TcpStream,
-    job_dispatcher: JobDispatcher<ReceiveType, SendType>,
+    job_dispatcher: JobDispatcher<Req, Resp>,
     read_write_buffer_size: usize,
 ) where
-    ReceiveType: Communicable,
-    SendType: Communicable,
+    Req: Communicable,
+    Resp: Communicable,
 {
     let (reader, writer) = io::split(stream);
     let (tx, rx) = mpsc::channel(read_write_buffer_size);
@@ -24,25 +24,25 @@ pub async fn create_connection_manager<ReceiveType, SendType>(
     println!("Client disconnected; shutting down server connection.")
 }
 
-async fn create_read_task<ReceiveType, SendType>(
+async fn create_read_task<Req, Resp>(
     mut reader: ReadHalf<TcpStream>,
-    job_dispatcher: JobDispatcher<ReceiveType, SendType>,
-    tx: mpsc::Sender<oneshot::Receiver<SendType>>,
+    job_dispatcher: JobDispatcher<Req, Resp>,
+    tx: mpsc::Sender<oneshot::Receiver<Resp>>,
 ) where
-    ReceiveType: Communicable,
-    SendType: Communicable,
+    Req: Communicable,
+    Resp: Communicable,
 {
-    while let Ok(data) = stream_serialization::receive::<ReceiveType>(&mut reader).await {
+    while let Ok(data) = stream_serialization::receive::<Req>(&mut reader).await {
         let response_receiver = job_dispatcher.dispatch_job(data).await;
         let _ = tx.send(response_receiver).await;
     }
 }
 
-async fn create_write_task<SendType>(
+async fn create_write_task<Resp>(
     mut writer: WriteHalf<TcpStream>,
-    mut rx: mpsc::Receiver<oneshot::Receiver<SendType>>,
+    mut rx: mpsc::Receiver<oneshot::Receiver<Resp>>,
 ) where
-    SendType: Communicable,
+    Resp: Communicable,
 {
     let mut response_receivers = FuturesUnordered::new();
     loop {
