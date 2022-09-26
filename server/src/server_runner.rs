@@ -2,15 +2,12 @@ use crate::{jobs, manage_connection};
 use connection_utils::{Communicable, TriviallyThreadable};
 use tokio::net::{TcpListener, ToSocketAddrs};
 
-pub async fn run_server<Req, Resp, Address, Op>(
+pub async fn run_server<Req: Communicable, Resp: Communicable, Address: ToSocketAddrs, Op>(
     address: Address,
     f: Op,
     jobs_buffer_size: usize,
     read_write_buffer_size: usize,
 ) where
-    Req: Communicable,
-    Resp: Communicable,
-    Address: ToSocketAddrs,
     Op: FnOnce(&Req) -> Resp + TriviallyThreadable + Copy,
 {
     let listener = TcpListener::bind(address).await.unwrap();

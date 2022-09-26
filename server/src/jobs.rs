@@ -7,19 +7,11 @@ use tokio::{
     task::{self, JoinHandle},
 };
 
-pub struct JobDispatcher<Req, Resp>
-where
-    Req: Communicable,
-    Resp: Communicable,
-{
+pub struct JobDispatcher<Req: Communicable, Resp: Communicable> {
     tx: mpsc::Sender<Command<Req, Resp>>,
 }
 
-impl<Req, Resp> JobDispatcher<Req, Resp>
-where
-    Req: Communicable,
-    Resp: Communicable,
-{
+impl<Req: Communicable, Resp: Communicable> JobDispatcher<Req, Resp> {
     pub async fn dispatch_job(&self, data: Req) -> oneshot::Receiver<Resp> {
         let (responder, response_receiver) = oneshot::channel::<Resp>();
         let command = Command { data, responder };
@@ -29,11 +21,7 @@ where
 }
 
 // #[derive(Clone)] does not work - it requires that both generic parameters implement Clone
-impl<Req, Resp> Clone for JobDispatcher<Req, Resp>
-where
-    Req: Communicable,
-    Resp: Communicable,
-{
+impl<Req: Communicable, Resp: Communicable> Clone for JobDispatcher<Req, Resp> {
     fn clone(&self) -> Self {
         JobDispatcher {
             tx: self.tx.clone(),
@@ -41,13 +29,11 @@ where
     }
 }
 
-pub fn spawn_jobs_task<Req, Resp, Op>(
+pub fn spawn_jobs_task<Req: Communicable, Resp: Communicable, Op>(
     f: Op,
     buffer_size: usize,
 ) -> (JobDispatcher<Req, Resp>, JoinHandle<()>)
 where
-    Req: Communicable,
-    Resp: Communicable,
     Op: FnOnce(&Req) -> Resp + TriviallyThreadable + Copy,
 {
     let (tx, rx) = mpsc::channel(buffer_size);
@@ -55,10 +41,10 @@ where
     (JobDispatcher { tx }, join_handle)
 }
 
-async fn create_jobs_task<Req, Resp, Op>(mut rx: mpsc::Receiver<Command<Req, Resp>>, f: Op)
-where
-    Req: Communicable,
-    Resp: Communicable,
+async fn create_jobs_task<Req: Communicable, Resp: Communicable, Op>(
+    mut rx: mpsc::Receiver<Command<Req, Resp>>,
+    f: Op,
+) where
     Op: FnOnce(&Req) -> Resp + TriviallyThreadable + Copy,
 {
     let pool = ThreadPool::new(8);
