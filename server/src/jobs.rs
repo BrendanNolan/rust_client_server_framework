@@ -1,5 +1,9 @@
-use super::command::{self, Command};
+use crate::{
+    command::{self, Command},
+    request_processing::RequestProcessor,
+};
 use connection_utils::{Communicable, TriviallyThreadable};
+use std::sync::Arc;
 use threadpool::ThreadPool;
 use tokio::{
     sync::mpsc,
@@ -29,28 +33,30 @@ impl<Req: Communicable, Resp: Communicable> Clone for JobDispatcher<Req, Resp> {
     }
 }
 
-pub fn spawn_jobs_task<Req: Communicable, Resp: Communicable, Op>(
-    f: Op,
+pub fn spawn_jobs_task<Req: Communicable, Resp: Communicable, P>(
+    p: P,
     buffer_size: usize,
 ) -> (JobDispatcher<Req, Resp>, JoinHandle<()>)
 where
-    Op: FnOnce(&Req) -> Resp + TriviallyThreadable + Copy,
+    P: RequestProcessor<Req, Resp> + TriviallyThreadable,
 {
     let (tx, rx) = mpsc::channel(buffer_size);
-    let join_handle = tokio::spawn(create_jobs_task(rx, f));
+    let join_handle = tokio::spawn(create_jobs_task(rx, p));
     (JobDispatcher { tx }, join_handle)
 }
 
-async fn create_jobs_task<Req: Communicable, Resp: Communicable, Op>(
+async fn create_jobs_task<Req: Communicable, Resp: Communicable, P>(
     mut rx: mpsc::Receiver<Command<Req, Resp>>,
-    f: Op,
+    p: P,
 ) where
-    Op: FnOnce(&Req) -> Resp + TriviallyThreadable + Copy,
+    P: RequestProcessor<Req, Resp> + TriviallyThreadable,
 {
+    let p = Arc::new(p);
     let pool = ThreadPool::new(8);
     while let Some(command) = rx.recv().await {
+        let p = p.clone();
         pool.execute(move || {
-            command::process(command, f);
+            command::process(command, &p);
         });
     }
     task::spawn_blocking(move || {

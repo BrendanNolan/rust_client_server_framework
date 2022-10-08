@@ -1,17 +1,17 @@
-use crate::{jobs, manage_connection};
+use crate::{jobs, manage_connection, request_processing::RequestProcessor};
 use connection_utils::{Communicable, TriviallyThreadable};
 use tokio::net::{TcpListener, ToSocketAddrs};
 
-pub async fn run_server<Req: Communicable, Resp: Communicable, Address: ToSocketAddrs, Op>(
+pub async fn run_server<Req: Communicable, Resp: Communicable, Address: ToSocketAddrs, P>(
     address: Address,
-    f: Op,
+    p: P,
     jobs_buffer_size: usize,
     read_write_buffer_size: usize,
 ) where
-    Op: FnOnce(&Req) -> Resp + TriviallyThreadable + Copy,
+    P: RequestProcessor<Req, Resp> + TriviallyThreadable,
 {
     let listener = TcpListener::bind(address).await.unwrap();
-    let (job_dispatcher, jobs_task) = jobs::spawn_jobs_task(f, jobs_buffer_size);
+    let (job_dispatcher, jobs_task) = jobs::spawn_jobs_task(p, jobs_buffer_size);
     let mut connection_tasks = Vec::new();
     while let Ok((stream, _)) = listener.accept().await {
         let connection_task = tokio::spawn(manage_connection::create_connection_manager(

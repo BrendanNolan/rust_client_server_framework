@@ -1,4 +1,4 @@
-use super::command::Command;
+use crate::command::Command;
 use connection_utils::{stream_serialization, Communicable};
 use tokio::{io, net::TcpStream, sync::mpsc::Receiver};
 

@@ -1,4 +1,4 @@
-use super::Communicable;
+use crate::Communicable;
 
 use serde::de::DeserializeOwned;
 use tokio::{
