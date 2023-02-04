@@ -14,10 +14,10 @@ impl<Req: Communicable, Resp: Communicable> Debug for Command<Req, Resp> {
     }
 }
 
-pub fn process<Req: Communicable, Resp: Communicable, P>(command: Command<Req, Resp>, p: &P)
-where
-    P: RequestProcessor<Req, Resp>,
-{
+pub fn process<Req: Communicable, Resp: Communicable, P: RequestProcessor<Req, Resp>>(
+    command: Command<Req, Resp>,
+    p: &P,
+) {
     let response = p.process(&command.data);
     command.responder.send(response).unwrap();
 }

@@ -33,24 +33,27 @@ impl<Req: Communicable, Resp: Communicable> Clone for JobDispatcher<Req, Resp> {
     }
 }
 
-pub fn spawn_jobs_task<Req: Communicable, Resp: Communicable, P>(
+pub fn spawn_jobs_task<
+    Req: Communicable,
+    Resp: Communicable,
+    P: RequestProcessor<Req, Resp> + TriviallyThreadable,
+>(
     p: P,
     buffer_size: usize,
-) -> (JobDispatcher<Req, Resp>, JoinHandle<()>)
-where
-    P: RequestProcessor<Req, Resp> + TriviallyThreadable,
-{
+) -> (JobDispatcher<Req, Resp>, JoinHandle<()>) {
     let (tx, rx) = mpsc::channel(buffer_size);
     let join_handle = tokio::spawn(create_jobs_task(rx, p));
     (JobDispatcher { tx }, join_handle)
 }
 
-async fn create_jobs_task<Req: Communicable, Resp: Communicable, P>(
+async fn create_jobs_task<
+    Req: Communicable,
+    Resp: Communicable,
+    P: RequestProcessor<Req, Resp> + TriviallyThreadable,
+>(
     mut rx: mpsc::Receiver<Command<Req, Resp>>,
     p: P,
-) where
-    P: RequestProcessor<Req, Resp> + TriviallyThreadable,
-{
+) {
     let p = Arc::new(p);
     let pool = ThreadPool::new(8);
     while let Some(command) = rx.recv().await {
