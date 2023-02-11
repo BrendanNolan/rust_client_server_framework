@@ -1,5 +1,5 @@
 use crate::command::Command;
-use connection_utils::{stream_serialization, Communicable};
+use connection_utils::{stream_serialization, Communicable, ServerError};
 use tokio::{io, net::TcpStream, sync::mpsc::Receiver};
 
 pub async fn create_cyclic_connection_manager<S: Communicable, R: Communicable>(
@@ -14,7 +14,7 @@ pub async fn create_cyclic_connection_manager<S: Communicable, R: Communicable>(
         {
             break;
         }
-        let received = stream_serialization::receive::<R>(&mut reader).await;
+        let received = stream_serialization::receive::<Result<R, ServerError>>(&mut reader).await;
         command.responder.send(received.ok()).unwrap();
     }
 }

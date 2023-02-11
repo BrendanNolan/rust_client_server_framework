@@ -19,5 +19,5 @@ pub fn process<Req: Communicable, Resp: Communicable, P: RequestProcessor<Req, R
     p: &P,
 ) {
     let response = p.process(&command.data);
-    command.responder.send(response).unwrap();
+    let _ = command.responder.send(response);
 }

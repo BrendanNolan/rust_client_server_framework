@@ -1,4 +1,5 @@
 use client::{command::Command, tasks};
+use connection_utils::ServerError;
 use std::time::SystemTime;
 use tokio::{
     net::TcpStream,
@@ -29,13 +30,41 @@ async fn create_client_task(tx: mpsc::Sender<IntStringCommand>) {
         .unwrap();
         let response = response_rx.await;
         match response {
-            Ok(Some(response)) => println!(
+            Ok(Some(response)) => match process_response_from_server(&response, &begin_time) {
+                ClientAction::Continue => {}
+                ClientAction::Stop => return,
+            },
+            Ok(None) => println!("Failed to read response."),
+            Err(_) => panic!("Client unexpectedly failed to receive a response"),
+        }
+    }
+}
+
+enum ClientAction {
+    Continue,
+    Stop,
+}
+
+fn process_response_from_server(
+    response: &Result<String, ServerError>,
+    begin_time: &SystemTime,
+) -> ClientAction {
+    match response {
+        Ok(response) => {
+            println!(
                 "Received a response: {:?} after {} seconds.",
                 response,
                 begin_time.elapsed().unwrap().as_secs()
-            ),
-            Ok(None) => println!("Failed to read response."),
-            Err(_) => panic!("Client unexpectedly failed to receive a response"),
+            );
+            ClientAction::Continue
+        }
+        Err(error_message) => {
+            println!(
+                "Received a server error: {:?} after {} seconds.",
+                error_message,
+                begin_time.elapsed().unwrap().as_secs()
+            );
+            ClientAction::Stop
         }
     }
 }
