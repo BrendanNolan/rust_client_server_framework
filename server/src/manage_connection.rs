@@ -1,4 +1,4 @@
-use crate::jobs::JobDispatcher;
+use crate::{jobs::JobDispatcher, shutdown::ShutdownListener};
 use connection_utils::{stream_serialization, Communicable};
 use futures::{stream::FuturesUnordered, StreamExt};
 use tokio::{
@@ -10,6 +10,7 @@ use tokio::{
 pub async fn create_connection_manager<Req: Communicable, Resp: Communicable>(
     stream: TcpStream,
     job_dispatcher: JobDispatcher<Req, Resp>,
+    shutdown_listener: ShutdownListener,
     read_write_buffer_size: usize,
 ) {
     let (reader, writer) = io::split(stream);
