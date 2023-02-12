@@ -22,7 +22,6 @@ pub async fn run_server<
     let connection_listener = TcpListener::bind(address).await.unwrap();
     let (job_dispatcher, jobs_task) = jobs::spawn_jobs_task(
         request_processor,
-        shutdown_listener.clone(),
         jobs_buffer_size,
     );
     let mut connection_tasks = Vec::new();

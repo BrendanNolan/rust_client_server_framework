@@ -1,7 +1,6 @@
 use crate::{
     command::{self, Command},
     request_processing::RequestProcessor,
-    shutdown::ShutdownListener,
 };
 use connection_utils::{Communicable, TriviallyThreadable};
 use std::sync::Arc;
@@ -40,11 +39,10 @@ pub fn spawn_jobs_task<
     P: RequestProcessor<Req, Resp> + TriviallyThreadable,
 >(
     p: P,
-    shutdown_listener: ShutdownListener,
     buffer_size: usize,
 ) -> (JobDispatcher<Req, Resp>, JoinHandle<()>) {
     let (tx, rx) = mpsc::channel(buffer_size);
-    let join_handle = tokio::spawn(create_jobs_task(rx, p, shutdown_listener));
+    let join_handle = tokio::spawn(create_jobs_task(rx, p));
     (JobDispatcher { tx }, join_handle)
 }
 
@@ -55,14 +53,10 @@ async fn create_jobs_task<
 >(
     mut rx: mpsc::Receiver<Command<Req, Resp>>,
     p: P,
-    mut shutdown_listener: ShutdownListener,
 ) {
     let p = Arc::new(p);
     let pool = ThreadPool::new(8);
-    while let Some(command) = tokio::select! {
-        possible_command = rx.recv() => possible_command,
-        _ = shutdown_listener.listen_for_shutdown_signal() => { return; },
-    } {
+    while let Some(command) = rx.recv().await {
         let p = p.clone();
         pool.execute(move || {
             command::process(command, &p);
