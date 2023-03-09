@@ -73,7 +73,7 @@ async fn try_establish_connection<Req: Communicable, Resp: Communicable>(
     read_write_buffer_size: usize,
     shutdown_listener: ShutdownListener,
 ) -> Option<JoinHandle<()>> {
-    let Ok((stream, _)) = connection_listener.accept().await else { return None; };
+    let (stream, _) = connection_listener.accept().await.ok()?;
     println!("Accetped Connection.");
     let connection_task = tokio::spawn(manage_connection::create_connection_manager(
         stream,
