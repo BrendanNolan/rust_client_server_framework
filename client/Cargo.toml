@@ -7,5 +7,4 @@ edition = "2021"
 
 [dependencies]
 connection_utils = { path = "../connection_utils" }
-serde = "1.0.144"
 tokio = { version = "1", features = ["full"] }

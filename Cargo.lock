@@ -52,7 +52,6 @@ name = "client"
 version = "0.1.0"
 dependencies = [
  "connection_utils",
- "serde",
  "tokio",
 ]
 
