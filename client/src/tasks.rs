@@ -2,6 +2,7 @@ use crate::command::Command;
 use connection_utils::{stream_serialization, Communicable, ServerError};
 use tokio::{io, net::TcpStream, sync::mpsc::Receiver};
 
+// Will not send a new request until it receives a response from the previous request.
 pub async fn create_cyclic_connection_manager<S: Communicable, R: Communicable>(
     stream: TcpStream,
     mut rx: Receiver<Command<S, R>>,
