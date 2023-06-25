@@ -15,11 +15,17 @@ pub async fn create_connection_manager<Req: Communicable, Resp: Communicable>(
     loop {
         tokio::select! {
             request = rx.recv() => {
-                let Some(request) = request else { break; };
+                let Some(request) = request else {
+                    println!("Got a bad request.");
+                    break;
+                };
                 let _ = stream_serialization::send(&request, &mut writer).await;
             },
             response = stream_serialization::receive::<Resp>(&mut reader) => {
-                let Ok(response) = response else { break; };
+                let Ok(response) = response else {
+                    println!("Received a bad response");
+                    break;
+                };
                 let _ = tx.send(response).await;
             },
         }
