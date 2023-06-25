@@ -9,7 +9,7 @@ use tokio::{
 pub async fn create_connection_manager<Req: Communicable, Resp: Communicable>(
     stream: TcpStream,
     mut rx: Receiver<Req>,
-    tx: Sender<Resp>,
+    tx: Sender<Option<Result<Resp, ServerError>>>,
 ) {
     let (mut reader, mut writer) = io::split(stream);
     loop {
@@ -21,12 +21,12 @@ pub async fn create_connection_manager<Req: Communicable, Resp: Communicable>(
                 };
                 let _ = stream_serialization::send(&request, &mut writer).await;
             },
-            response = stream_serialization::receive::<Resp>(&mut reader) => {
-                let Ok(response) = response else {
+            response = stream_serialization::receive::<Result<Resp, ServerError>>(&mut reader) => {
+                if response.is_err() {
                     println!("Received a bad response");
                     break;
                 };
-                let _ = tx.send(response).await;
+                let _ = tx.send(response.ok()).await;
             },
         }
     }
