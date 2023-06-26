@@ -8,24 +8,34 @@ use tokio::{
 
 pub async fn create_connection_manager<Req: Communicable, Resp: Communicable>(
     stream: TcpStream,
-    mut rx: Receiver<Req>,
+    rx: Receiver<Req>,
     tx: Sender<Option<Result<Resp, ServerError>>>,
 ) {
-    let (mut reader, mut writer) = io::split(stream);
-    let request_loop_handle = tokio::spawn(async move {
-        while let Some(request) = rx.recv().await {
-            let _ = stream_serialization::send(&request, &mut writer).await;
-        }
-    });
-    let response_loop_handle = tokio::spawn(async move {
-        while let Ok(response) =
-            stream_serialization::receive::<Result<Resp, ServerError>>(&mut reader).await
-        {
-            let _ = tx.send(Some(response)).await;
-        }
-    });
+    let (reader, writer) = io::split(stream);
+    let request_loop_handle = tokio::spawn(run_request_loop(rx, writer));
+    let response_loop_handle = tokio::spawn(run_response_loop(reader, tx));
     let _ = request_loop_handle.await;
     let _ = response_loop_handle.await;
+}
+
+async fn run_response_loop<Resp: Communicable>(
+    mut reader: io::ReadHalf<TcpStream>,
+    tx: Sender<Option<Result<Resp, ServerError>>>,
+) {
+    while let Ok(response) =
+        stream_serialization::receive::<Result<Resp, ServerError>>(&mut reader).await
+    {
+        let _ = tx.send(Some(response)).await;
+    }
+}
+
+async fn run_request_loop<Req: Communicable>(
+    mut rx: Receiver<Req>,
+    mut writer: io::WriteHalf<TcpStream>,
+) {
+    while let Some(request) = rx.recv().await {
+        let _ = stream_serialization::send(&request, &mut writer).await;
+    }
 }
 
 // Will not send a new request until it receives a response from the previous request.
