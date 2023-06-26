@@ -12,24 +12,20 @@ pub async fn create_connection_manager<Req: Communicable, Resp: Communicable>(
     tx: Sender<Option<Result<Resp, ServerError>>>,
 ) {
     let (mut reader, mut writer) = io::split(stream);
-    loop {
-        tokio::select! {
-            request = rx.recv() => {
-                let Some(request) = request else {
-                    println!("Got a bad request.");
-                    break;
-                };
-                let _ = stream_serialization::send(&request, &mut writer).await;
-            },
-            response = stream_serialization::receive::<Result<Resp, ServerError>>(&mut reader) => {
-                if response.is_err() {
-                    println!("Received a bad response");
-                    break;
-                };
-                let _ = tx.send(response.ok()).await;
-            },
+    let request_loop_handle = tokio::spawn(async move {
+        while let Some(request) = rx.recv().await {
+            let _ = stream_serialization::send(&request, &mut writer).await;
         }
-    }
+    });
+    let response_loop_handle = tokio::spawn(async move {
+        while let Ok(response) =
+            stream_serialization::receive::<Result<Resp, ServerError>>(&mut reader).await
+        {
+            let _ = tx.send(Some(response)).await;
+        }
+    });
+    let _ = request_loop_handle.await;
+    let _ = response_loop_handle.await;
 }
 
 // Will not send a new request until it receives a response from the previous request.
