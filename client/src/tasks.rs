@@ -1,5 +1,6 @@
 use crate::command::Command;
-use connection_utils::{stream_serialization, Communicable, ServerError};
+pub use connection_utils::ServerError;
+use connection_utils::{stream_serialization, Communicable};
 use tokio::{
     io,
     net::TcpStream,
@@ -9,7 +10,7 @@ use tokio::{
 pub async fn create_connection_manager<Req: Communicable, Resp: Communicable>(
     stream: TcpStream,
     rx: Receiver<Req>,
-    tx: Sender<Option<Result<Resp, ServerError>>>,
+    tx: Sender<Result<Resp, ServerError>>,
 ) {
     let (reader, writer) = io::split(stream);
     let request_loop_handle = tokio::spawn(run_request_loop(rx, writer));
@@ -20,12 +21,12 @@ pub async fn create_connection_manager<Req: Communicable, Resp: Communicable>(
 
 async fn run_response_loop<Resp: Communicable>(
     mut reader: io::ReadHalf<TcpStream>,
-    tx: Sender<Option<Result<Resp, ServerError>>>,
+    tx: Sender<Result<Resp, ServerError>>,
 ) {
     while let Ok(response) =
         stream_serialization::receive::<Result<Resp, ServerError>>(&mut reader).await
     {
-        let _ = tx.send(Some(response)).await;
+        let _ = tx.send(response).await;
     }
 }
 
@@ -39,6 +40,8 @@ async fn run_request_loop<Req: Communicable>(
 }
 
 // Will not send a new request until it receives a response from the previous request.
+// Responds with None if it couldn't read the response from the socket or deserlialize
+// the response.
 pub async fn create_cyclic_connection_manager<S: Communicable, R: Communicable>(
     stream: TcpStream,
     mut rx: Receiver<Command<S, R>>,
