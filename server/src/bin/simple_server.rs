@@ -1,22 +1,22 @@
 use server::{request_processing::RequestProcessor, server_runner, shutdown::ShutdownListener};
 use tokio::{signal, sync::watch};
 
-fn put_int_in_string(i: &u32) -> String {
+fn convert_int_to_string(i: &u32) -> String {
     std::thread::sleep(std::time::Duration::from_secs(1));
     format!("The number is: {}", i)
 }
 
-struct StringIntPlacer {}
+struct IntToStringConverter {}
 
-impl StringIntPlacer {
+impl IntToStringConverter {
     fn new() -> Self {
-        StringIntPlacer {}
+        IntToStringConverter {}
     }
 }
 
-impl RequestProcessor<u32, String> for StringIntPlacer {
+impl RequestProcessor<u32, String> for IntToStringConverter {
     fn process(&self, request: &u32) -> String {
-        put_int_in_string(request)
+        convert_int_to_string(request)
     }
 }
 
@@ -25,7 +25,7 @@ async fn main() {
     let (tx_shutdown, rx_shutdown) = watch::channel(());
     let server_task = tokio::spawn(server_runner::run_server(
         "127.0.0.1:6379",
-        StringIntPlacer::new(),
+        IntToStringConverter::new(),
         ShutdownListener::new(rx_shutdown),
         10,
         10,
