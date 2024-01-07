@@ -1,0 +1,220 @@
+\documentclass{beamer}
+\mode<presentation>
+{
+  \usetheme{NYU}      % or try Darmstadt, Madrid, Warsaw, ...
+  \usecolortheme{default} % or try albatross, beaver, crane, ...
+  \usefonttheme{default}  % or try serif, structurebold, ...
+  \setbeamertemplate{navigation symbols}{}
+  \setbeamertemplate{caption}[numbered]
+} 
+
+\usepackage[english]{babel}
+\usepackage[T1]{fontenc}
+\usepackage[utf8x]{inputenc}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{mdframed}
+\usepackage{xcolor}
+\usepackage{graphicx}
+
+\definecolor{light-gray}{gray}{0.95}
+
+\title[]{Generic Application-Server Crates}
+\subtitle{Built With Async Rust}
+\author{Brendan Nolan}
+\date{\today}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Goal}
+  \begin{itemize}[<+->]
+    \item<1> Provide an \emph{application-server} crate and a \emph{client} crate, allowing users to request jobs which are
+          too heavy for their local machines.
+    \item<2> Example use case: scientists in a wetlab, who must regularly run heavy models from their bench
+          laptops.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{How A User Creates A Custom Server}
+  A user who wants a server that provides weather status must only do the following:
+  \begin{mdframed}[backgroundcolor=light-gray, roundcorner=10pt,leftmargin=1, rightmargin=1, innerleftmargin=1, innerrightmargin=1, innertopmargin=1,innerbottommargin=1, outerlinewidth=1, linecolor=light-gray]
+    \begin{lstlisting}[basicstyle=\tiny,]
+let (tx_shutdown, rx_shutdown) = watch::channel(());
+let server_task = tokio::spawn(server_runner::run_server(
+    "<IP Address>:<Port>",
+    weather_provider,  // User's type - must implement RequestProcessor
+    ShutdownListener::new(rx_shutdown),
+));
+    \end{lstlisting}
+  \end{mdframed}
+\end{frame}
+
+
+\begin{frame}[fragile]{Example Application}
+  \begin{figure}[htp]
+    \centering
+    \includegraphics[width=11cm, height=5cm]{weather_tui}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Must-Have Features}
+  For crate users
+  \begin{itemize}[<+->]
+    \item<1> Easily customise server data processing, e.g.:
+    \begin{itemize}[<+->]
+      \item<1> train ML algorithms
+      \item<1> run planetary models
+      \item<1> run structural analysis of timberframe houses
+    \end{itemize}
+    \item<2> Allow client to choose between
+      \begin{itemize}[<+->]
+        \item<2> call-and-response model 
+        \item<2> sending and receiving in any order
+      \end{itemize}
+    \item<3> Remain responsive as number of clients connecting to a single server grows
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Must-Have Features}
+  For crate developers
+  \begin{itemize}[<+->]
+    \item<1> Do not waste resources by blocking threads while waiting for I/O
+    \item<2> (More insidious than the above) do not make asynchronous work wait for other asynchronous work
+      unnecessarily
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Technology Choices}
+  Criteria for chosen technology
+  \begin{itemize}[<+->]
+    \item<1> Has well documented library(s) for async I/O
+    \item<2> Eliminates as many bugs as possible as early as possible (strong bias towards compiled languages)
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Technology Choices}
+  \emph{C++}: \emph{boost.asio}
+  \begin{itemize}[<+->]
+    \item<1> Pros
+    \begin{itemize}[<+->]
+      \item<1> \emph{boost.asio} is a mature library
+    \end{itemize}
+    \item<2> Cons
+    \begin{itemize}[<+->]
+      \item<2> awkward call-back mechanism
+      \item<2> many object-lifetime footguns (use-after-free bugs)
+      \item<2> static polymoprphism extremely awkward to use
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Technology Choices}
+  \emph{Rust}: \emph{tokio}
+  \begin{itemize}[<+->]
+    \item<1> Cons
+      \begin{itemize}[<+->]
+        \item<1> async I/O ecosystem in \emph{Rust} is still young
+      \end{itemize}
+    \item<2> Pros
+    \begin{itemize}[<+->]
+      \item<2> \emph{async}/\emph{await} syntax is far more ergonomic than passing callbacks around
+      \item<2> typesystem eliminates use-after-free bugs
+      \item<2> static polymorphism is user friendly
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Winner}
+  \begin{large}
+    \begin{center}
+      \textbf{Winner: \emph{Rust} with \emph{tokio}}
+    \end{center}
+  \end{large}
+\end{frame}
+
+\begin{frame}[fragile]{Design Decisions}
+  \begin{itemize}[<+->]
+    \item<1> Customization point should allow state (e.g. in order to cache results of previous model runs)
+  \end{itemize}
+  \begin{mdframed}[backgroundcolor=light-gray, roundcorner=10pt,leftmargin=1, rightmargin=1, innerleftmargin=1, innerrightmargin=1, innertopmargin=1,innerbottommargin=1, outerlinewidth=1, linecolor=light-gray]
+    \begin{lstlisting}[basicstyle=\tiny,]
+pub trait RequestProcessor<Req, Resp> {
+    fn process(&self, request: &Req) -> Resp;
+}
+    \end{lstlisting}
+  \end{mdframed}
+\end{frame}
+
+\begin{frame}{Design Decisions}
+  \begin{itemize}[<+->]
+    \item<1> Support serialization by \emph{serde} only
+    \item<2> Make three crates (for client, server, and I/O utilities) rather than combining all into one crate
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Design Decisions}
+  \begin{itemize}
+    \item<1> Follow the Golang philosophy: "Do not communicate by sharing memory - share memory by communicating"
+    \item<2> Employ the \emph{actor} pattern, recommended by Alice Ryhl (tokio maintainer)
+    \item<3> Make it as simple as possible to set up a custom server
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{How The Server Handles Jobs}
+  My Implementation Of The Actor Pattern \newline
+  \begin{tiny}
+    (Some generic parameters and trait bounds removed for readability)
+  \end{tiny}
+  \begin{mdframed}[backgroundcolor=light-gray, roundcorner=10pt,leftmargin=1, rightmargin=1, innerleftmargin=1, innerrightmargin=1, innertopmargin=1,innerbottommargin=1, outerlinewidth=1, linecolor=light-gray]
+    \begin{lstlisting}[basicstyle=\tiny,]
+pub struct Command<Req, Resp> {
+    pub data: Req,
+    pub responder: oneshot::Sender<Resp>,
+}
+
+// The "Handle"
+pub struct JobDispatcher<Req, Resp> {
+  // Receiver owned by "Actor" (jobs task)
+  tx: mpsc::Sender<Command<Req, Resp>>,
+}
+
+impl Clone for JobDispatcher<Req, Resp> { ... }
+
+impl JobDispatcher<Req, Resp> {
+    pub async fn dispatch_job(&self, data: Req) -> oneshot::Receiver<Resp> {
+      // Create command from data
+      // Send command to jobs task
+      // Return receiver from which job result can be collected
+    }
+}
+    \end{lstlisting}
+  \end{mdframed}
+\end{frame}
+
+\begin{frame}{To-Do List}
+  \emph{server} crate:
+  \begin{itemize}[<+->]
+    \item<1> Implement unified and ergonomic way to handle shutdown signals
+    \item<2> Add organised logging (with support for various levels of verbosity)
+    \item<3> Consider compatability of serialized data across architectures, versions of this crate, versions
+             of dependencies (look into protobuf). (May be difficult because input/output data is generic by design.)
+    \item<4> Think carefully about backpressure
+    \item<5> Ensure there are no partial-read vulnerabilities
+    \item<6> Investigate automatically figuring out channel bounds, rather than asking the user to supply them
+    \item<7> Automated testing
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{To-Do List}
+  \emph{client} crate:
+  \begin{itemize}[<+->]
+    \item<1> Not I/O bound - does it need async? Would it be enough to have a read thread and a write thread?
+  \end{itemize}
+\end{frame}
+
+\end{document}
+
